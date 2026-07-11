@@ -1,0 +1,26 @@
+[
+  {
+    "id": "kb-react",
+    "title": "ReAct Agent",
+    "content": "ReAct 通过 Thought/Action/Observation 循环让模型决定何时调用工具，适合可解释的多步任务。",
+    "tags": ["agent", "react", "tools"]
+  },
+  {
+    "id": "kb-hybrid",
+    "title": "Hybrid Retrieval",
+    "content": "关键词重叠与 TF-IDF 融合可在无向量库环境下提升 RAG 召回，适合教学与轻量落地。",
+    "tags": ["rag", "retrieval", "tfidf"]
+  },
+  {
+    "id": "kb-mcp",
+    "title": "Model Context Protocol",
+    "content": "MCP 用标准 JSON-RPC 暴露 tools/list 与 tools/call，让 IDE 与 Agent 以统一方式挂载外部能力。",
+    "tags": ["mcp", "protocol", "tools"]
+  },
+  {
+    "id": "kb-eval",
+    "title": "Retrieval Eval",
+    "content": "用 Precision@K、Recall@K、MRR 量化检索改动，避免凭感觉调参。",
+    "tags": ["eval", "metrics"]
+  }
+]
