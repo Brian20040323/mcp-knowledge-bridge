@@ -1,4 +1,4 @@
-"""Minimal MCP-compatible JSON-RPC server over stdio."""
+"""Minimal MCP-compatible JSON-RPC server over stdio (tools + resources)."""
 
 from __future__ import annotations
 
@@ -6,14 +6,13 @@ import json
 import sys
 from typing import Any
 
-from .tools import call_tool, tool_schemas
+from .tools import STORE, call_tool, tool_schemas
 
 PROTOCOL_VERSION = "2024-11-05"
-SERVER_INFO = {"name": "mcp-knowledge-bridge", "version": "0.1.0"}
+SERVER_INFO = {"name": "mcp-knowledge-bridge", "version": "0.2.0"}
 
 
 def _read_message() -> dict[str, Any] | None:
-    """Read one LSP/MCP-style Content-Length framed message from stdin."""
     headers: dict[str, str] = {}
     while True:
         line = sys.stdin.buffer.readline()
@@ -50,7 +49,6 @@ def handle(msg: dict[str, Any]) -> dict[str, Any] | None:
     req_id = msg.get("id")
     params = msg.get("params") or {}
 
-    # notifications (no id)
     if req_id is None and method in {"notifications/initialized", "initialized"}:
         return None
 
@@ -59,7 +57,7 @@ def handle(msg: dict[str, Any]) -> dict[str, Any] | None:
             req_id,
             {
                 "protocolVersion": PROTOCOL_VERSION,
-                "capabilities": {"tools": {}},
+                "capabilities": {"tools": {}, "resources": {}},
                 "serverInfo": SERVER_INFO,
             },
         )
@@ -73,8 +71,19 @@ def handle(msg: dict[str, Any]) -> dict[str, Any] | None:
             req_id,
             {
                 "content": [{"type": "text", "text": text}],
-                "isError": text.startswith('{"error"'),
+                "isError": '"error"' in text[:40],
             },
+        )
+    if method == "resources/list":
+        return _ok(req_id, {"resources": STORE.list_resources()})
+    if method == "resources/read":
+        uri = str(params.get("uri") or "")
+        text = STORE.read_resource(uri)
+        if text is None:
+            return _err(req_id, -32002, f"Resource not found: {uri}")
+        return _ok(
+            req_id,
+            {"contents": [{"uri": uri, "mimeType": "text/plain", "text": text}]},
         )
     if method == "ping":
         return _ok(req_id, {})
