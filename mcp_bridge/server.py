@@ -57,7 +57,7 @@ def handle(msg: dict[str, Any]) -> dict[str, Any] | None:
             req_id,
             {
                 "protocolVersion": PROTOCOL_VERSION,
-                "capabilities": {"tools": {}, "resources": {}},
+                "capabilities": {"tools": {}, "resources": {}, "prompts": {}},
                 "serverInfo": SERVER_INFO,
             },
         )
@@ -85,6 +85,15 @@ def handle(msg: dict[str, Any]) -> dict[str, Any] | None:
             req_id,
             {"contents": [{"uri": uri, "mimeType": "text/plain", "text": text}]},
         )
+    if method == "prompts/list":
+        return _ok(req_id, {"prompts": STORE.list_prompts()})
+    if method == "prompts/get":
+        name = str(params.get("name") or "")
+        arguments = params.get("arguments") or {}
+        prompt = STORE.get_prompt(name, arguments if isinstance(arguments, dict) else {})
+        if prompt is None:
+            return _err(req_id, -32002, f"Prompt not found: {name}")
+        return _ok(req_id, prompt)
     if method == "ping":
         return _ok(req_id, {})
 

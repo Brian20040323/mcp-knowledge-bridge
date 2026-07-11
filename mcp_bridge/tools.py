@@ -78,6 +78,41 @@ class KnowledgeStore:
                 return f"# {e.title}\n\n{e.content}\n\ntags: {', '.join(e.tags)}"
         return None
 
+    def list_prompts(self) -> list[dict[str, Any]]:
+        return [
+            {
+                "name": "research_brief",
+                "description": "Ask the model to research a topic using kb_search then summarize with citations.",
+                "arguments": [{"name": "topic", "description": "Topic to research", "required": True}],
+            },
+            {
+                "name": "compare_topics",
+                "description": "Compare two knowledge entry ids with kb_compare.",
+                "arguments": [
+                    {"name": "left_id", "required": True},
+                    {"name": "right_id", "required": True},
+                ],
+            },
+        ]
+
+    def get_prompt(self, name: str, arguments: dict | None = None) -> dict[str, Any] | None:
+        arguments = arguments or {}
+        if name == "research_brief":
+            topic = arguments.get("topic", "{{topic}}")
+            text = (
+                f"Research topic: {topic}\n"
+                "1) Call kb_search on the topic\n"
+                "2) Optionally kb_get the top hit\n"
+                "3) Write a short brief with source ids"
+            )
+            return {"name": name, "messages": [{"role": "user", "content": {"type": "text", "text": text}}]}
+        if name == "compare_topics":
+            left = arguments.get("left_id", "kb-react")
+            right = arguments.get("right_id", "kb-mcp")
+            text = f"Compare knowledge entries {left} vs {right} using kb_compare, then explain differences."
+            return {"name": name, "messages": [{"role": "user", "content": {"type": "text", "text": text}}]}
+        return None
+
     def get(self, entry_id: str) -> Entry | None:
         return self.entries.get(entry_id)
 

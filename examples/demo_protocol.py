@@ -23,6 +23,9 @@ def main() -> None:
     print("resources:", len(resources))
     if resources:
         print("read:", c.read_resource(resources[0]["uri"])[:200])
+    prompts = c.list_prompts()
+    print("prompts:", [p["name"] for p in prompts])
+    print("prompt.get:", c.get_prompt("research_brief", {"topic": "MCP"})["messages"][0]["content"]["text"][:120])
     print("compare:", c.call_tool("kb_compare", {"left_id": "kb-react", "right_id": "kb-mcp"})[:300])
 
 

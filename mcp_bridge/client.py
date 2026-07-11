@@ -35,3 +35,9 @@ class LocalMCPClient:
 
     def read_resource(self, uri: str) -> str:
         return self._req("resources/read", {"uri": uri})["contents"][0]["text"]
+
+    def list_prompts(self) -> list:
+        return self._req("prompts/list")["prompts"]
+
+    def get_prompt(self, name: str, arguments: dict | None = None) -> dict:
+        return self._req("prompts/get", {"name": name, "arguments": arguments or {}})
