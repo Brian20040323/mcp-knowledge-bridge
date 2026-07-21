@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import threading
 import math
 import re
 import sys
@@ -33,6 +34,7 @@ class Entry:
 
 class KnowledgeStore:
     def __init__(self) -> None:
+        self._lock = threading.Lock()
         self.entries: dict[str, Entry] = {}
         self._load_json()
         self._load_docs()
@@ -46,25 +48,27 @@ class KnowledgeStore:
         self.avgdl = sum(self.doc_len.values()) / self.n
 
     def _load_json(self) -> None:
-        raw = json.loads(DATA.read_text(encoding="utf-8"))
-        for item in raw:
-            eid = item["id"]
-            self.entries[eid] = Entry(
-                id=eid,
-                title=item["title"],
-                content=item["content"],
-                tags=list(item.get("tags") or []),
-                uri=f"kb://entry/{eid}",
-            )
+        with self._lock:
+            raw = json.loads(DATA.read_text(encoding="utf-8"))
+            for item in raw:
+                eid = item["id"]
+                self.entries[eid] = Entry(
+                    id=eid,
+                    title=item["title"],
+                    content=item["content"],
+                    tags=list(item.get("tags") or []),
+                    uri=f"kb://entry/{eid}",
+                )
 
     def _load_docs(self) -> None:
-        if not CORPUS_DIR.exists():
-            return
-        for fp in CORPUS_DIR.glob("*.md"):
-            eid = f"doc-{fp.stem}"
-            text = fp.read_text(encoding="utf-8").strip()
-            title = text.splitlines()[0].lstrip("# ").strip() if text else fp.stem
-            self.entries[eid] = Entry(id=eid, title=title, content=text, tags=["doc"], uri=f"kb://doc/{fp.stem}")
+        with self._lock:
+            if not CORPUS_DIR.exists():
+                return
+            for fp in CORPUS_DIR.glob("*.md"):
+                eid = f"doc-{fp.stem}"
+                text = fp.read_text(encoding="utf-8").strip()
+                title = text.splitlines()[0].lstrip("# ").strip() if text else fp.stem
+                self.entries[eid] = Entry(id=eid, title=title, content=text, tags=["doc"], uri=f"kb://doc/{fp.stem}")
 
     def list_resources(self) -> list[dict[str, Any]]:
         return [
@@ -133,12 +137,13 @@ class KnowledgeStore:
 
     def search(self, query: str, top_k: int = 3) -> list[tuple[Entry, float]]:
         q = tokenize(query)
-        if not q:
-            return []
-        scored = [(e, self._bm25(q, e.id)) for e in self.entries.values()]
-        scored = [(e, s) for e, s in scored if s > 0]
-        scored.sort(key=lambda x: x[1], reverse=True)
-        return scored[:top_k]
+        with self._lock:
+            if not q:
+                return []
+            scored = [(e, self._bm25(q, e.id)) for e in self.entries.values()]
+            scored = [(e, s) for e, s in scored if s > 0]
+            scored.sort(key=lambda x: x[1], reverse=True)
+            return scored[:top_k]
 
 
 STORE = KnowledgeStore()

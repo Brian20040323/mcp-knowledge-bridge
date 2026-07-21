@@ -1,5 +1,7 @@
 # MCP Knowledge Bridge
 
+[![CI](https://github.com/Brian20040323/mcp-knowledge-bridge/actions/workflows/ci.yml/badge.svg)](https://github.com/Brian20040323/mcp-knowledge-bridge/actions/workflows/ci.yml)
+
 [![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
 [![Version](https://img.shields.io/badge/version-0.2.0-blueviolet.svg)](#whats-new-in-v020)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)

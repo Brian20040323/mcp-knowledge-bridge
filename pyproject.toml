@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "mcp-knowledge-bridge"
+version = "0.2.0"
+description = "Independent MCP knowledge bridge: tools/resources/prompts, BM25 KB, stdio + HTTP Bearer auth, Cursor-ready."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Brian20040323" }]
+keywords = ["mcp", "model-context-protocol", "rag", "llm-tools", "json-rpc"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "ruff>=0.3"]
+
+[project.scripts]
+mcp-knowledge-bridge = "mcp_bridge.server:main"
+
+[project.urls]
+Repository = "https://github.com/Brian20040323/mcp-knowledge-bridge"
+
+[tool.ruff]
+target-version = "py39"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
