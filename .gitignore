@@ -5,3 +5,6 @@ __pycache__/
 .env
 .idea/
 .vscode/
+.ruff_cache/
+dist/
+*.egg-info/
