@@ -2,27 +2,33 @@
 
 from __future__ import annotations
 
+import hmac
 import json
 import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import urlparse
 
 from .tools import STORE, call_tool, tool_schemas
 
 
-AUTH_TOKEN = os.getenv("MCP_BRIDGE_TOKEN", "dev-token")
+def bearer_token_matches(header: str | None, token: str) -> bool:
+    if not header or not token:
+        return False
+    scheme, separator, supplied = header.partition(" ")
+    return separator == " " and scheme == "Bearer" and hmac.compare_digest(supplied, token)
+
+
+class BridgeHTTPServer(ThreadingHTTPServer):
+    auth_token: str
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "MCPKnowledgeBridgeHTTP/0.2"
+    server_version = "MCPKnowledgeBridgeREST/0.3"
 
     def _auth_ok(self) -> bool:
-        header = self.headers.get("Authorization", "")
-        if header == f"Bearer {AUTH_TOKEN}":
-            return True
-        # also allow query token for quick demos
-        qs = parse_qs(urlparse(self.path).query)
-        return qs.get("token", [None])[0] == AUTH_TOKEN
+        server = self.server
+        assert isinstance(server, BridgeHTTPServer)
+        return bearer_token_matches(self.headers.get("Authorization"), server.auth_token)
 
     def _json(self, code: int, payload: dict) -> None:
         raw = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -54,14 +60,18 @@ class Handler(BaseHTTPRequestHandler):
         body = self.rfile.read(length) if length else b"{}"
         try:
             data = json.loads(body.decode("utf-8") or "{}")
-        except json.JSONDecodeError:
+        except (UnicodeDecodeError, json.JSONDecodeError):
             return self._json(400, {"error": "invalid json"})
+        if not isinstance(data, dict):
+            return self._json(400, {"error": "request body must be an object"})
 
         if path == "/tools/call":
-            name = str(data.get("name") or "")
-            arguments = data.get("arguments") or {}
-            text = call_tool(name, arguments if isinstance(arguments, dict) else {})
-            return self._json(200, {"content": text})
+            name = data.get("name")
+            arguments = data.get("arguments", {})
+            if not isinstance(name, str) or not isinstance(arguments, dict):
+                return self._json(400, {"error": "name must be a string and arguments an object"})
+            result = call_tool(name, arguments)
+            return self._json(200, {"content": result.text, "isError": result.is_error})
         if path == "/resources/read":
             uri = str(data.get("uri") or "")
             text = STORE.read_resource(uri)
@@ -74,10 +84,20 @@ class Handler(BaseHTTPRequestHandler):
         return
 
 
+def create_server(host: str, port: int, token: str) -> BridgeHTTPServer:
+    if not token:
+        raise ValueError("MCP_BRIDGE_TOKEN must be set and non-empty")
+    httpd = BridgeHTTPServer((host, port), Handler)
+    httpd.auth_token = token
+    return httpd
+
+
 def main(host: str = "127.0.0.1", port: int = 8765) -> None:
-    httpd = ThreadingHTTPServer((host, port), Handler)
-    print(f"MCP Knowledge Bridge HTTP on http://{host}:{port}")
-    print(f"Auth: Authorization: Bearer {AUTH_TOKEN}")
+    token = os.getenv("MCP_BRIDGE_TOKEN")
+    if not token:
+        raise SystemExit("MCP_BRIDGE_TOKEN is required to start the REST companion")
+    httpd = create_server(host, port, token)
+    print(f"MCP Knowledge Bridge REST companion listening on http://{host}:{port}")
     httpd.serve_forever()
 
 

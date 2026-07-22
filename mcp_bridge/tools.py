@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import math
 import re
-import sys
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
@@ -29,6 +28,22 @@ class Entry:
     content: str
     tags: list[str]
     uri: str
+
+
+@dataclass(frozen=True)
+class ToolResult:
+    """A tool outcome with an explicit MCP error signal."""
+
+    text: str
+    is_error: bool = False
+
+    @classmethod
+    def success(cls, text: str) -> ToolResult:
+        return cls(text=text)
+
+    @classmethod
+    def error(cls, message: str) -> ToolResult:
+        return cls(text=message, is_error=True)
 
 
 class KnowledgeStore:
@@ -191,9 +206,18 @@ def tool_schemas() -> list[dict]:
     ]
 
 
-def call_tool(name: str, arguments: dict) -> str:
+def call_tool(name: str, arguments: dict[str, Any]) -> ToolResult:
     if name == "kb_search":
-        hits = STORE.search(str(arguments.get("query") or ""), int(arguments.get("top_k") or 3))
+        try:
+            top_k = int(arguments.get("top_k", 3))
+        except (TypeError, ValueError):
+            return ToolResult.error("top_k must be an integer")
+        if top_k < 1:
+            return ToolResult.error("top_k must be at least 1")
+        query = arguments.get("query")
+        if not isinstance(query, str) or not query.strip():
+            return ToolResult.error("query must be a non-empty string")
+        hits = STORE.search(query, top_k)
         payload = [
             {
                 "id": e.id,
@@ -204,21 +228,30 @@ def call_tool(name: str, arguments: dict) -> str:
             }
             for e, s in hits
         ]
-        return json.dumps(payload, ensure_ascii=False, indent=2)
+        return ToolResult.success(json.dumps(payload, ensure_ascii=False, indent=2))
     if name == "kb_get":
-        entry = STORE.get(str(arguments.get("id") or ""))
+        entry_id = arguments.get("id")
+        if not isinstance(entry_id, str) or not entry_id:
+            return ToolResult.error("id must be a non-empty string")
+        entry = STORE.get(entry_id)
         if not entry:
-            return json.dumps({"error": "not found"}, ensure_ascii=False)
-        return json.dumps(
-            {"id": entry.id, "title": entry.title, "content": entry.content, "tags": entry.tags, "uri": entry.uri},
-            ensure_ascii=False,
-            indent=2,
+            return ToolResult.error(f"knowledge entry not found: {entry_id}")
+        return ToolResult.success(
+            json.dumps(
+                {"id": entry.id, "title": entry.title, "content": entry.content, "tags": entry.tags, "uri": entry.uri},
+                ensure_ascii=False,
+                indent=2,
+            )
         )
     if name == "kb_compare":
-        left = STORE.get(str(arguments.get("left_id") or ""))
-        right = STORE.get(str(arguments.get("right_id") or ""))
+        left_id = arguments.get("left_id")
+        right_id = arguments.get("right_id")
+        if not isinstance(left_id, str) or not isinstance(right_id, str):
+            return ToolResult.error("left_id and right_id must be strings")
+        left = STORE.get(left_id)
+        right = STORE.get(right_id)
         if not left or not right:
-            return json.dumps({"error": "one or both ids not found"}, ensure_ascii=False)
+            return ToolResult.error("one or both knowledge entry ids were not found")
         lt, rt = set(tokenize(left.content)), set(tokenize(right.content))
         payload = {
             "left": {"id": left.id, "title": left.title},
@@ -227,7 +260,10 @@ def call_tool(name: str, arguments: dict) -> str:
             "left_only": sorted(lt - rt)[:20],
             "right_only": sorted(rt - lt)[:20],
         }
-        return json.dumps(payload, ensure_ascii=False, indent=2)
+        return ToolResult.success(json.dumps(payload, ensure_ascii=False, indent=2))
     if name == "echo_debug":
-        return json.dumps({"echo": arguments.get("message")}, ensure_ascii=False)
-    return json.dumps({"error": f"unknown tool: {name}"}, ensure_ascii=False)
+        message = arguments.get("message")
+        if not isinstance(message, str):
+            return ToolResult.error("message must be a string")
+        return ToolResult.success(json.dumps({"echo": message}, ensure_ascii=False))
+    return ToolResult.error(f"unknown tool: {name}")

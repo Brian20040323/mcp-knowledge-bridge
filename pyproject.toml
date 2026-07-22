@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mcp-knowledge-bridge"
+version = "0.3.0"
+description = "Educational MCP stdio knowledge bridge with a custom REST companion"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Brian20040323" }]
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8",
+  "pytest-cov>=5",
+  "ruff>=0.9",
+]
+
+[project.scripts]
+mcp-knowledge-bridge = "mcp_bridge.server:main"
+mcp-knowledge-bridge-rest = "mcp_bridge.http_server:main"
+
+[tool.setuptools]
+packages = ["mcp_bridge"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers"
+
+[tool.coverage.run]
+source = ["mcp_bridge"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 85
+
+[tool.ruff]
+target-version = "py39"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+"examples/*.py" = ["E402"]

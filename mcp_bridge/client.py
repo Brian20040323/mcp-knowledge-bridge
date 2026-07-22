@@ -4,24 +4,34 @@ from __future__ import annotations
 
 from typing import Any
 
-from .server import handle
+from .server import PROTOCOL_VERSION, MCPServer
 
 
 class LocalMCPClient:
     def __init__(self) -> None:
         self._id = 0
+        self._server = MCPServer()
 
     def _req(self, method: str, params: dict | None = None) -> Any:
         self._id += 1
         msg = {"jsonrpc": "2.0", "id": self._id, "method": method, "params": params or {}}
-        resp = handle(msg)
+        resp = self._server.handle(msg)
         assert resp is not None
         if "error" in resp:
             raise RuntimeError(resp["error"])
         return resp["result"]
 
     def initialize(self) -> dict:
-        return self._req("initialize", {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "local"}})
+        result = self._req(
+            "initialize",
+            {
+                "protocolVersion": PROTOCOL_VERSION,
+                "capabilities": {},
+                "clientInfo": {"name": "local-mcp-client", "version": "0.3.0"},
+            },
+        )
+        self._server.handle({"jsonrpc": "2.0", "method": "notifications/initialized"})
+        return result
 
     def list_tools(self) -> list:
         return self._req("tools/list")["tools"]
